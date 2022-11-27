@@ -1,2 +1,2 @@
-# LBRTI2101A---Data-Science-in-bioscience-engineering
+# LBRTI2101A-Data-Science-in-bioscience-engineering-project
  UCLouvain bioengineering data project
