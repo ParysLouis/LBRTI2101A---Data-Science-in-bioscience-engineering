@@ -27,19 +27,15 @@ theme_set(theme_classic())
 
 ```{r}
 getwd()
-setwd("C:/Users/PC/OneDrive/Documents/A_studies/2022-2023/LBRTI2101A/data/LBRTI2101A---Data-Science-in-bioscience-engineering")
+
 ```
 
 # Data loading
 ```{r}
-#setwd("C:/Users/PC/OneDrive/Documents/A_studies/2022-2023/LBRTI2101A/data/LBRTI2101A---Data-Science-in-bioscience-engineering") #set working dir
 
+#setwd("C:/Users/PC/OneDrive/Documents/A_studies/2022-2023/LBRTI2101A/data/LBRTI2101A---Data-Science-in-bioscience-engineering") #set working dir
 data <- fread('data.csv')
 summary(data)
-
-is.data.frame(data)
-
-data$A
 ```
 
 # Data visualisation
@@ -100,15 +96,62 @@ COLORS= c("Density histogram"= "blue","Filtred pdf"= "lightsteelblue2", "Normal 
 graph_1= ggplot(data, aes(x=A))+
   geom_histogram(bins = 15, color = "white", mapping = aes( y=..density.., color = "Density histogram"), fill= "steelblue3")+
   geom_density( size= 0.75, mapping = aes(color = "Filtred pdf"), alpha= 0.4 , fill= "white")+
+  ggtitle("Density histogram of the clay (argile)") +
   stat_function(fun=dnorm, 
                 args=list(mean=mean,sd=sd), size=0.8, mapping = aes(color = "Normal pdf"))+
-  labs(x= "Rain [mm]", y= "f(x)", fill= "chat")+
+  labs(x= "A [%]", y= "f(x)", fill= "chat")+
+  scale_color_manual(values = COLORS, "Legend")+
+  theme(legend.key = element_rect(fill = "white", 
+                                  color = NA))
+
+sd= sd(data$pH_KCL)
+mean= mean(data$pH_KCL)
+COLORS= c("Density histogram"= "blue","Filtred pdf"= "lightsteelblue2", "Normal pdf"= "red" )
+graph_2= ggplot(data, aes(x=pH_KCL))+
+  geom_histogram(bins = 15, color = "white", mapping = aes( y=..density.., color = "Density histogram"), fill= "steelblue3")+
+  geom_density( size= 0.75, mapping = aes(color = "Filtred pdf"), alpha= 0.4 , fill= "white")+
+  ggtitle("Density histogram of the pH_KCL") +
+  stat_function(fun=dnorm, 
+                args=list(mean=mean,sd=sd), size=0.8, mapping = aes(color = "Normal pdf"))+
+  labs(x= "pH KCl [-]", y= "f(x)", fill= "chat")+
   scale_color_manual(values = COLORS, "Legend")+
   theme(legend.key = element_rect(fill = "white", 
                                   color = NA))
 
 
+sd= sd(data$CEC)
+mean= mean(data$CEC)
+COLORS= c("Density histogram"= "blue","Filtred pdf"= "lightsteelblue2", "Normal pdf"= "red" )
+graph_3= ggplot(data, aes(x=CEC))+
+  geom_histogram(bins = 15, color = "white", mapping = aes( y=..density.., color = "Density histogram"), fill= "steelblue3")+
+  geom_density( size= 0.75, mapping = aes(color = "Filtred pdf"), alpha= 0.4 , fill= "white")+
+  ggtitle("Density histogram of the CEC") +
+  stat_function(fun=dnorm, 
+                args=list(mean=mean,sd=sd), size=0.8, mapping = aes(color = "Normal pdf"))+
+  labs(x= "CEC [méq/100g]", y= "f(x)", fill= "chat")+
+  scale_color_manual(values = COLORS, "Legend")+
+  theme(legend.key = element_rect(fill = "white", 
+                                  color = NA))
+
+sd= sd(data$IB.samples, na.rm=TRUE)
+mean= mean(data$IB.samples, na.rm=TRUE)
+COLORS= c("Density histogram"= "blue","Filtred pdf"= "lightsteelblue2", "Normal pdf"= "red" )
+graph_4= ggplot(data, aes(x=IB.samples, na.rm=TRUE))+
+  geom_histogram(bins = 15, color = "white", mapping = aes( y=..density.., color = "Density histogram"), fill= "steelblue3")+
+  geom_density( size= 0.75, mapping = aes(color = "Filtred pdf"), alpha= 0.4 , fill= "white")+
+  ggtitle("Density histogram of the 
+batter index (indice de battance)") +
+  stat_function(fun=dnorm, 
+                args=list(mean=mean,sd=sd), size=0.8, mapping = aes(color = "Normal pdf"))+
+  labs(x= "IB [-]", y= "f(x)", fill= "chat")+
+  scale_color_manual(values = COLORS, "Legend")+
+  theme(legend.key = element_rect(fill = "white", 
+                                  color = NA))
 graph_1
+graph_2
+graph_3
+graph_4
+
 ```
 
 
@@ -117,6 +160,22 @@ graph_1
 
 
 
+```{r}
+# dépendance spatiale -----------------------------------------------------------------------------------------------------------------
+A.gstat <- gstat(formula = A~1, data = data, locations = ~x+y)
+A.vario <- variogram(A.gstat, cutoff = 300, width = 25) #cutoff=moitié de la distance totale entre les deux points les plus éloignés
+head(A.vario)
+var_A = var(data$A)
+
+ggplot(A.vario) + geom_point(aes(x = dist,y=gamma)) +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x='distance',y='semivariance',title="Variogram of A (before trend removal)") +
+  geom_hline(aes(yintercept = var_A, linetype="A variance")) + 
+  scale_linetype_manual(name = "",values = ("Var A" = "dashed")) + 
+  theme(legend.position = c(0.85,0.1)) + 
+  scale_x_continuous(expand = c(0, 0))
+
+```
 
 
 
