@@ -1,0 +1,139 @@
+---
+title: 'Data_A: Project'
+author: "Louis"
+date: '2022-11-28'
+output: html_document
+---
+
+# Packages
+```{r, include=FALSE}
+rm(list=ls())
+library(fields)
+library(data.table)
+library(viridis)
+library(gstat)
+library(ggplot2)
+library(PerformanceAnalytics)
+library(corrplot)
+library(gridExtra)
+library(car)
+library("psych")
+library(quantmod)
+theme_set(theme_classic())
+
+
+
+```
+
+```{r}
+getwd()
+setwd("C:/Users/PC/OneDrive/Documents/A_studies/2022-2023/LBRTI2101A/data/LBRTI2101A---Data-Science-in-bioscience-engineering")
+```
+
+# Data loading
+```{r}
+#setwd("C:/Users/PC/OneDrive/Documents/A_studies/2022-2023/LBRTI2101A/data/LBRTI2101A---Data-Science-in-bioscience-engineering") #set working dir
+
+data <- fread('data.csv')
+summary(data)
+
+is.data.frame(data)
+
+data$A
+```
+
+# Data visualisation
+
+#### Data plot
+```{r}
+# plot argile 
+argile = ggplot(data) + geom_point(aes(x=x, y=y, color=A),size=4) + 
+  xlab("X") + ylab("Y") + 
+  ggtitle("Carte du pourcentage d'argile") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="Argile [%]", colors=c('red','yellow','green3','royalblue')) +
+  theme_classic()
+
+
+# plot pH KCl 
+pH_KCl = ggplot(data) + geom_point(aes(x=x, y=y, color=pH_KCL),size=4) + 
+  xlab("X") + ylab("Y") + 
+  ggtitle("Carte du pH de KCl") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="pH KCl ", colors=c('red','yellow','green3','royalblue')) +
+  theme_classic()
+
+# plot CEC 
+CEC = ggplot(data) + geom_point(aes(x=x, y=y, color=CEC), size=4) + 
+  xlab("X") + ylab("Y") + 
+  ggtitle("Carte de la CEC") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="CEC [méq/100g]", colors=c('red','yellow','green3','royalblue')) +
+  theme_classic()
+
+# plot IB (indice de battance)
+IB = ggplot(na.omit(data)) + geom_point(aes(x=x, y=y, color=IB.samples), size=4) + 
+  xlab("X") + ylab("Y") + 
+  ggtitle("Carte de l'indice empirique de sensibilité à la battance") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="IB [-]", colors=c('red','yellow','green3','royalblue')) +
+  theme_classic()
+
+#grid.arrange(argile,pH_KCl,CEC,IB,ncol=2, top="Scatterplot matrix")
+argile
+pH_KCl
+CEC
+IB
+```
+
+#### Correlation chart
+```{r}
+data_del=  data[,-1:-2] #delets the x and y column to create a correlation chart
+chart.Correlation(data_del, histogram = TRUE)
+```
+
+
+```{r}
+sd= sd(data$A)
+mean= mean(data$A)
+COLORS= c("Density histogram"= "blue","Filtred pdf"= "lightsteelblue2", "Normal pdf"= "red" )
+graph_1= ggplot(data, aes(x=A))+
+  geom_histogram(bins = 15, color = "white", mapping = aes( y=..density.., color = "Density histogram"), fill= "steelblue3")+
+  geom_density( size= 0.75, mapping = aes(color = "Filtred pdf"), alpha= 0.4 , fill= "white")+
+  stat_function(fun=dnorm, 
+                args=list(mean=mean,sd=sd), size=0.8, mapping = aes(color = "Normal pdf"))+
+  labs(x= "Rain [mm]", y= "f(x)", fill= "chat")+
+  scale_color_manual(values = COLORS, "Legend")+
+  theme(legend.key = element_rect(fill = "white", 
+                                  color = NA))
+
+
+graph_1
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
