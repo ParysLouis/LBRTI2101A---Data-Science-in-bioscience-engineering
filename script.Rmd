@@ -128,7 +128,7 @@ graph_3= ggplot(data, aes(x=CEC))+
   ggtitle("Density histogram of the CEC") +
   stat_function(fun=dnorm, 
                 args=list(mean=mean,sd=sd), size=0.8, mapping = aes(color = "Normal pdf"))+
-  labs(x= "CEC [méq/100g]", y= "f(x)", fill= "chat")+
+  labs(x= "CEC [mï¿½q/100g]", y= "f(x)", fill= "chat")+
   scale_color_manual(values = COLORS, "Legend")+
   theme(legend.key = element_rect(fill = "white", 
                                   color = NA))
@@ -161,9 +161,9 @@ graph_4
 
 
 ```{r}
-# dépendance spatiale -----------------------------------------------------------------------------------------------------------------
+# dï¿½pendance spatiale -----------------------------------------------------------------------------------------------------------------
 A.gstat <- gstat(formula = A~1, data = data, locations = ~x+y)
-A.vario <- variogram(A.gstat, cutoff = 300, width = 25) #cutoff=moitié de la distance totale entre les deux points les plus éloignés
+A.vario <- variogram(A.gstat, cutoff = 300, width = 25) #cutoff=moitiï¿½ de la distance totale entre les deux points les plus ï¿½loignï¿½s
 head(A.vario)
 var_A = var(data$A)
 
