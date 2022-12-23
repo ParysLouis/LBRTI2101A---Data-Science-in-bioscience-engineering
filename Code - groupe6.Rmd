@@ -1,0 +1,1155 @@
+---
+title: "LBRTI2101A - project ocer spatial analysis"
+author: "LEMAIRE Romain - PARYS Julien - THONNARD Julien - VAN EETVELT Mattias"
+date: "2022-2023"
+output: pdf_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r packages, message = FALSE}
+library(fields)
+library(data.table)
+library(viridis)
+library(gstat)
+library(ggplot2)
+library(PerformanceAnalytics)
+library(gstat)
+library(car)
+library(rgl)
+library(latticeExtra)
+library(car)
+library(matrixStats)
+library(plotly)
+theme_set(theme_classic())
+```
+
+
+
+```{r data}
+data <- fread('data.csv')
+zone1 <- fread('zone_1.csv')
+zone2 <- fread('zone_2.csv')
+summary(data)
+data_omit = na.omit(data)
+
+ggplot() + 
+  geom_point(data=zone1, 
+            aes(x=x, y=y),
+            shape=16,
+            size=6, 
+            color='chartreuse4') +
+  geom_point(data=zone2, 
+             aes(x=x, y=y),
+             shape=16,
+             size=6,
+             color='darkgoldenrod1') +
+  theme(legend.key = element_rect(fill = "green3", 
+                                  color = NA))+
+  xlab("X") +
+  ylab("Y")
+```
+
+
+
+```{r cartes de répartition}
+# carte du pourcentage d'argile
+ggplot(data) + geom_point(aes(x=x, y=y, color=A),size=4) + 
+  xlab("X") + ylab("Y") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="Clay [%]", colors=c('red','yellow','green3','royalblue'))
+
+# carte du pH KCl 
+ggplot(data) + geom_point(aes(x=x, y=y, color=pH_KCL),size=4) + 
+  xlab("X") + ylab("Y") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="pH KCl ", colors=c('red','yellow','green3','royalblue'))
+
+# carte de la CEC
+ggplot(data) + geom_point(aes(x=x, y=y, color=CEC), size=4) + 
+  xlab("X") + ylab("Y") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="CEC [meq/100g]", colors=c('red','yellow','green3','royalblue'))
+
+# carte de l'IB 
+ggplot(data_omit) + geom_point(aes(x=x, y=y, color=IB.samples), size=4) + 
+  xlab("X") + ylab("Y") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  scale_color_gradientn(name="Beat index [-]", colors=c('red','yellow','green3','royalblue'))
+
+# matrice de corrélation 
+chart.Correlation(data[,.(x, y, A, pH_KCL, CEC, IB.samples)])
+```
+
+
+
+```{r densité mesures}
+# densité mesure argile
+ggplot(data, aes(x = A)) + 
+  geom_histogram(aes(y = ..density..,  
+                     fill = "Density histogram"),
+                 bins = 15, # number of bins
+                 color = "white") + 
+  geom_density(col = "lightsteelblue3", 
+               aes(fill = "Fitted pdf"), 
+               alpha = 0.2) +  
+  xlab("Clay [%]") + 
+  ylab("f(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun=dnorm, 
+                args=list(mean = mean(data$A), sd = sd(data$A)), 
+                aes(color="Normal pdf"),
+                size= 1) + 
+  scale_fill_manual("", values = c("Density histogram"="lightsteelblue2",
+                                   "Fitted pdf"=alpha("lightsteelblue3",.2))) +
+  scale_color_manual("", values="red")
+
+# densité mesure de la CEC
+ggplot(data, aes(x = CEC)) + 
+  geom_histogram(aes(y = ..density..,  
+                     fill = "Density histogram"),
+                 bins = 15, # number of bins
+                 color = "white") + 
+  geom_density(col = "lightsteelblue3", 
+               aes(fill = "Fitted pdf"), 
+               alpha = 0.2) +  
+  xlab("CEC [meq/100g]") + 
+  ylab("f(x)") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun=dnorm, 
+                args=list(mean = mean(data$CEC), sd = sd(data$CEC)), 
+                aes(color="Normal pdf"),
+                size= 1) + 
+  scale_fill_manual("", values = c("Density histogram"="lightsteelblue2",
+                                   "Fitted pdf"=alpha("lightsteelblue3",.2))) +
+  scale_color_manual("", values="red")
+
+# densité mesure pH KCl
+ggplot(data, aes(x = pH_KCL)) + 
+  geom_histogram(aes(y = ..density..,  
+                     fill = "Density histogram"),
+                 bins = 15, # number of bins
+                 color = "white") + 
+  geom_density(col = "lightsteelblue3", 
+               aes(fill = "Fitted pdf"), 
+               alpha = 0.2) +  
+  xlab("pH KCl [-]") + 
+  ylab("f(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun=dnorm, 
+                args=list(mean = mean(data$pH_KCL), sd = sd(data$pH_KCL)), 
+                aes(color="Normal pdf"),
+                size= 1) + 
+  scale_fill_manual("", values = c("Density histogram"="lightsteelblue2",
+                                   "Fitted pdf"=alpha("lightsteelblue3",.2))) +
+  scale_color_manual("", values="red")
+
+# densité mesure IB
+ggplot(data_omit, aes(x = IB.samples)) + 
+  geom_histogram(aes(y = ..density..,  
+                     fill = "Density histogram"),
+                 bins = 15, # number of bins
+                 color = "white") + 
+  geom_density(col = "lightsteelblue3", 
+               aes(fill = "Fitted pdf"), 
+               alpha = 0.2) +  
+  xlab("Beat index [-]") + 
+  ylab("f(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun=dnorm, 
+                args=list(mean = mean(na.omit(data$IB.samples)), sd = sd(na.omit(data$IB.samples))), 
+                aes(color="Normal pdf"),
+                size= 1) + 
+  scale_fill_manual("", values = c("Density histogram"="lightsteelblue2",
+                                   "Fitted pdf"=alpha("lightsteelblue3",.2))) +
+  scale_color_manual("", values="red")
+```
+
+
+
+```{r}
+
+A.lm <- lm(A ~CEC+pH_KCL, data = data)
+summary(A.lm)
+scatter3d(x = data$CEC, z = data$pH_KCL, y = data$A, 
+          xlab = 'CEC', zlab = 'pH_KCL', ylab = 'Clay')
+
+rglwidget(width = 600, height = 600)
+A.derive <- predict(A.lm, data)
+data[, A.res := A - A.derive]
+scatter3d(x = data$CEC, z = data$pH_KCL, y = data$A.res, 
+           xlab = 'CEC', zlab = 'pH_KCL', ylab = 'Clay')
+rglwidget(width = 600, height = 600)
+
+
+pH.lm <- lm(pH_KCL ~A+CEC, data = data)
+summary(pH.lm)
+scatter3d(x = data$A, z = data$CEC, y = data$pH_KCL, 
+          xlab = 'Clay', zlab = 'CEC', ylab = 'pH_KCL')
+
+rglwidget(width = 600, height = 600)
+pH.derive <- predict(pH.lm, data)
+data[, pH_KCL.res := pH_KCL - pH.derive]
+scatter3d(x = data$A, z = data$CEC, y = data$pH_KCL.res, 
+           xlab = 'Clay', zlab = 'CEC', ylab = 'pH_KCL')
+rglwidget(width = 600, height = 600)
+
+
+CEC.lm <- lm(CEC ~A+pH_KCL, data = data)
+summary(CEC.lm)
+scatter3d(x = data$A, z = data$pH_KCL, y = data$CEC, 
+          xlab = 'Clay', zlab = 'pH_KCL', ylab = 'CEC')
+
+rglwidget(width = 600, height = 600)
+CEC.derive <- predict(CEC.lm, data)
+data[, CEC.res := CEC - CEC.derive]
+scatter3d(x = data$A, z = data$pH_KCL, y = data$CEC.res, 
+           xlab = 'Clay', zlab = 'pH_KCL', ylab = 'CEC')
+rglwidget(width = 600, height = 600)
+
+
+IB.lm <- lm(IB.samples ~A+CEC, data = data_omit)
+summary(IB.lm)
+scatter3d(x = data_omit$A, z = data_omit$CEC, y = data_omit$IB.samples, 
+          xlab = 'Clay', zlab = 'CEC', ylab = 'Beat index')
+
+rglwidget(width = 600, height = 600)
+IB.derive <- predict(IB.lm, data_omit)
+data_omit[, IB.samples.res := IB.samples - IB.derive]
+scatter3d(x = data_omit$A, z = data_omit$CEC, y = data_omit$IB.samples.res, 
+           xlab = 'Clay', zlab = 'CEC', ylab = 'Beat index')
+rglwidget(width = 600, height = 600)
+```
+
+
+
+```{r cartes des résidus}
+# carte des résidus argile
+A.res.Sd <- sd(data$A.res)
+A.res.Mean <- mean(data$A.res)
+clean.data.A <- data[A.res %between% c(A.res.Mean-3*A.res.Sd,A.res.Mean+3*A.res.Sd),]
+
+ggplot(data) + geom_point(aes(x=x, y=y, color=A.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="Clay [%]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-6,6))
+
+ggplot(clean.data.A) + geom_point(aes(x=x, y=y, color=A.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="Clay [%]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-6,6))
+
+
+# carte des résidus CEC
+CEC.res.Sd <- sd(data$CEC.res)
+CEC.res.Mean <- mean(data$CEC.res)
+clean.data.CEC <- data[CEC.res %between% c(CEC.res.Mean-3*CEC.res.Sd,CEC.res.Mean+3*CEC.res.Sd),]
+
+ggplot(data) + geom_point(aes(x=x, y=y, color=CEC.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="CEC [meq/100g]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-3.5,3.5))
+
+ggplot(clean.data.CEC) + geom_point(aes(x=x, y=y, color=CEC.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="CEC [meq/100g]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-3.5,3.5))
+
+
+# carte des résidus pH KCl
+pH_KCL.res.Sd <- sd(data$pH_KCL.res)
+pH_KCL.res.Mean <- mean(data$pH_KCL.res)
+clean.data.pH_KCL <- data[pH_KCL.res %between% c(pH_KCL.res.Mean-3*pH_KCL.res.Sd,pH_KCL.res.Mean+3*pH_KCL.res.Sd),]
+
+ggplot(data) + geom_point(aes(x=x, y=y, color=pH_KCL.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="pH KCl [-]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-1.5,1.5))
+
+ggplot(clean.data.pH_KCL) + geom_point(aes(x=x, y=y, color=pH_KCL.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="pH KCl [-]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-1.5,1.5))
+
+
+# carte des résidus IB
+IB.samples.res.Sd <- sd(data_omit$IB.samples.res)
+IB.samples.res.Mean <- mean(data_omit$IB.samples.res)
+clean.data_omit.IB.samples <- data_omit[IB.samples.res %between% c(IB.samples.res.Mean-3*IB.samples.res.Sd,IB.samples.res.Mean+3*IB.samples.res.Sd),]
+
+ggplot(data_omit) + geom_point(aes(x=x, y=y, color=IB.samples.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="Beat index [-]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-0.5,0.5))
+
+ggplot(clean.data_omit.IB.samples) + geom_point(aes(x=x, y=y, color=IB.samples.res), size=4) + 
+                 xlab("X") + ylab("Y") +
+                 theme(plot.title=element_text(hjust=0.5)) + 
+                 scale_color_gradientn(name="Beat index [-]", colors=c('royalblue','green3', 'yellow', 'red'), limit=c(-0.5,0.5))
+```
+
+
+
+```{r estimated VS normal cdf}
+# cdf argile avec outliers
+ggplot(data, aes(x = A)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) +  
+  xlab("Clay [%]") + 
+  ylab("F(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data$A), sd = sd(data$A)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+
+# cdf argile sans outliers
+ggplot(clean.data.A, aes(x = A)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) +
+  xlab("Clay [%]") + 
+  ylab("F(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data$A), sd = sd(data$A)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+
+
+
+# cdf pH KCl avec ouliers
+ggplot(data, aes(x = pH_KCL)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) + 
+  xlab("pH_KCL [-]") + 
+  ylab("F(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data$pH_KCL), sd = sd(data$pH_KCL)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+
+# cdf pH KCl sans outliers
+ggplot(clean.data.pH_KCL, aes(x = pH_KCL)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) +  
+  xlab("pH_KCL [-]") + 
+  ylab("F(x)") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data$pH_KCL), sd = sd(data$pH_KCL)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red"))
+
+
+
+# cdf  CEC avec outliers
+ggplot(data, aes(x = CEC)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) +  
+  xlab("CEC [meq/100g]") + 
+  ylab("F(x)") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  theme_classic() +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data$CEC), sd = sd(data$CEC)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+
+# cdf  CEC sans outliers
+ggplot(clean.data.CEC, aes(x = CEC)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) +  
+  xlab("CEC [meq/100g]") + 
+  ylab("F(x)") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  theme_classic() +
+  stat_function(fun = pnorm,
+                args = list(mean = mean(data$CEC), sd = sd(data$CEC)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+
+
+
+# cdf IB avec outliers
+ggplot(data_omit, aes(x = IB.samples)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) +  
+  xlab("Beat index [-]") + 
+  ylab("F(x)") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data_omit$IB.samples), sd = sd(data_omit$IB.samples)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+
+# cdf IB sans outliers
+ggplot(clean.data_omit.IB.samples, aes(x = IB.samples)) + 
+  stat_ecdf(geom = "step", aes(color = "Estimated cdf")) + 
+  xlab("Beat index [-]") + 
+  ylab("F(x)") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  stat_function(fun = pnorm, 
+                args = list(mean = mean(data_omit$IB.samples), sd = sd(data_omit$IB.samples)), 
+                aes(color = 'Normal cdf'),
+                size= 1) +
+  scale_color_manual("", values = c("Estimated cdf" = "black",
+                                    "Normal cdf" = "red")) 
+```
+
+
+
+```{r Q-Q plot}
+# Q-Q plot of the argile data
+qqPlot(data$A,distribution = "norm",ylab= "Clay quantiles",xlab = "Standard normal distribution quantiles")
+# Q-Q plot of the argile clean data
+qqPlot(clean.data.A$A,distribution = "norm",ylab= "Clay quantiles",xlab = "Standard normal distribution quantiles")
+
+
+# Q-Q plot of the pH of KCl data
+qqPlot(data$pH_KCL,distribution = "norm",ylab= "pH KCl quantiles",xlab = "Standard normal distribution quantiles")
+# Q-Q plot of the pH of KCl clean data
+qqPlot(clean.data.pH_KCL$pH_KCL,distribution = "norm",ylab= "pH KCl quantiles",xlab = "Standard normal distribution quantiles", main = '')
+
+
+# Q-Q plot of the CEC data
+qqPlot(data$CEC,distribution = "norm",ylab= "CEC quantiles",xlab = "Standard normal distribution quantiles")
+# Q-Q plot of the CEC clean data
+qqPlot(clean.data.CEC$CEC,distribution = "norm",ylab= "CEC quantiles",xlab = "Standard normal distribution quantiles")
+
+
+# Q-Q plot of the beat index data
+qqPlot(data_omit$IB.samples,distribution = "norm",ylab= "Beat index quantiles",xlab = "Standard normal distribution quantiles")
+# Q-Q plot of the beat index clean data
+qqPlot(clean.data_omit.IB.samples$IB.samples,distribution = "norm",ylab= "Beat index quantiles",xlab = "Standard normal distribution quantiles")
+```
+
+
+
+```{r}
+A.gstat <- gstat(formula = A~1, data = data, locations = ~x+y)
+A.vario <- variogram(A.gstat, cutoff = 300, width = 25)
+var_A = var(data$A)
+
+ggplot(A.vario) + geom_point(aes(x = dist,y=gamma)) +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_A, linetype="Clay variance")) + 
+  scale_linetype_manual(name = "",values = ("Var clay" = "dashed")) + 
+  theme(legend.position = c(0.85,0.1)) + 
+  scale_x_continuous(expand = c(0, 0))
+
+CEC.gstat <- gstat(formula = CEC~1, data = data, locations = ~x+y)
+CEC.vario <- variogram(CEC.gstat, cutoff = 450, width = 25)
+var_CEC = var(data$CEC)
+
+ggplot(CEC.vario) + geom_point(aes(x = dist,y=gamma)) +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_CEC, linetype="CEC variance")) + 
+  scale_linetype_manual(name = "",values = ("Var CEC" = "dashed")) + 
+  theme(legend.position = c(0.85,0.1)) + 
+  scale_x_continuous(expand = c(0, 0))
+
+pH.gstat <- gstat(formula = pH_KCL~1, data = data, locations = ~x+y)
+pH.vario <- variogram(pH.gstat, cutoff = 350, width = 25)
+var_pH = var(data$pH_KCL)
+
+ggplot(pH.vario) + geom_point(aes(x = dist,y=gamma)) +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_pH, linetype="pH KCl variance")) + 
+  scale_linetype_manual(name = "",values = ("Var pH" = "dashed")) + 
+  theme(legend.position = c(0.85,0.1)) + 
+  scale_x_continuous(expand = c(0, 0))
+
+IB.gstat <- gstat(formula = IB.samples~1, data = data_omit, locations = ~x+y)
+IB.vario <- variogram(IB.gstat, cutoff = 300, width = 25)
+var_IB = var(data_omit$IB.samples)
+
+ggplot(IB.vario) + geom_point(aes(x = dist,y=gamma)) +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_IB, linetype="Beat index variance")) + 
+  scale_linetype_manual(name = "",values = ("Var IB" = "dashed")) + 
+  theme(legend.position = c(0.85,0.1)) + 
+  scale_x_continuous(expand = c(0, 0))
+```
+
+
+
+```{r second variograme}
+# variograme argile
+A.res.gstat <- gstat(formula = A.res~1, data = clean.data.A, locations = ~x+y)
+
+A.res.vario <- variogram(A.res.gstat, cutoff = 300, width = 25)
+
+var_res_A = var(clean.data.A$A.res)
+
+vario_exp.A <- ggplot(A.res.vario,aes(x = dist,y=gamma)) + geom_point() +
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_res_A, linetype="Variance of clay residuals")) + 
+  theme(plot.title=element_text(hjust=0.5)) +ylim(0,5)+
+  scale_x_continuous(expand = c(0, 0))
+
+vario_exp.A + scale_linetype_manual(name = "",values = ("Variance of clay residuals" = "dashed")) + 
+  theme(legend.position = c(0.8,0.1))
+
+clean.vg.exp.A <- vgm(psill=2, model='Sph', range = 100, nugget = 1)
+clean.fit.exp.A <- fit.variogram(A.res.vario, model = clean.vg.exp.A, fit.method = 6)
+
+preds.A = variogramLine(clean.fit.exp.A, maxdist=300)
+
+vario_exp.A + geom_line(data=preds.A,aes(linetype="Fitted variogram model")) + 
+  scale_linetype_manual(name = "",values = c("Variance of clay residuals" = "dashed", "Fitted variogram model" = "solid")) + 
+  theme(legend.position = c(0.8,0.15))
+
+
+
+# variogramme pH KCl
+pH_KCL.res.gstat <- gstat(formula = pH_KCL.res~1, data = clean.data.pH_KCL, locations = ~x+y)
+
+pH_KCL.res.vario <- variogram(pH_KCL.res.gstat, cutoff = 350, width = 25)
+
+var_res_pH_KCL = var(clean.data.pH_KCL$pH_KCL.res)
+
+vario_exp.pH_KCL <- ggplot(pH_KCL.res.vario,aes(x = dist,y=gamma)) + geom_point() +
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_res_pH_KCL, linetype="Variance of pH KCl residuals")) + 
+  theme(plot.title=element_text(hjust=0.5)) +ylim(0,0.15)+
+  scale_x_continuous(expand = c(0, 0))
+
+vario_exp.pH_KCL + scale_linetype_manual(name = "",values = ("Variance of pH KCl residuals" = "dashed")) + 
+  theme(legend.position = c(0.8,0.1))
+
+clean.vg.exp.pH_KCL <- vgm(psill=0.05, model='Sph', range = 100, nugget = 0.04)
+clean.fit.exp.pH_KCL <- fit.variogram(pH_KCL.res.vario, model = clean.vg.exp.pH_KCL, fit.method = 6)
+
+preds.pH_KCL = variogramLine(clean.fit.exp.pH_KCL, maxdist=350)
+
+vario_exp.pH_KCL + geom_line(data=preds.pH_KCL,aes(linetype="Fitted variogram model")) + 
+  scale_linetype_manual(name = "",values = c("Variance of pH KCl residuals" = "dashed", "Fitted variogram model" = "solid")) + 
+  theme(legend.position = c(0.8,0.15))
+
+
+
+# variograme CEC
+CEC.res.gstat <- gstat(formula = CEC.res~1, data = clean.data.CEC, locations = ~x+y)
+
+CEC.res.vario <- variogram(CEC.res.gstat, cutoff = 450, width = 25)
+
+var_res_CEC = var(clean.data.CEC$CEC.res)
+
+vario_exp.CEC <- ggplot(CEC.res.vario,aes(x = dist,y=gamma)) + geom_point() +
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_res_CEC, linetype="Variance of CEC residuals")) + 
+  theme(plot.title=element_text(hjust=0.5)) +ylim(0,3)+
+  scale_x_continuous(expand = c(0, 0))
+
+vario_exp.CEC + scale_linetype_manual(name = "",values = ("Variance of CEC residuals" = "dashed")) + 
+  theme(legend.position = c(0.8,0.1))
+
+clean.vg.exp.CEC <- vgm(psill=1.5, model='Sph', range = 100, nugget = 0.25)
+clean.fit.exp.CEC <- fit.variogram(CEC.res.vario, model = clean.vg.exp.CEC, fit.method = 6)
+
+preds.CEC = variogramLine(clean.fit.exp.CEC, maxdist=450)
+
+vario_exp.CEC + geom_line(data=preds.CEC,aes(linetype="Fitted variogram model")) + 
+  scale_linetype_manual(name = "",values = c("Variance of CEC residuals" = "dashed", "Fitted variogram model" = "solid")) + 
+  theme(legend.position = c(0.8,0.15))
+
+
+
+# variograme IB
+IB.samples.res.gstat <- gstat(formula = IB.samples.res~1, data = clean.data_omit.IB.samples, locations = ~x+y)
+
+IB.samples.res.vario <- variogram(IB.samples.res.gstat, cutoff = 300, width = 25)
+IB.samples.res.variobis <-subset(IB.samples.res.vario, np!=8) 
+
+var_res_IB.samples = var(clean.data_omit.IB.samples$IB.samples.res)
+
+vario_exp.IB.samples <- ggplot(IB.samples.res.variobis,aes(x = dist,y=gamma)) + geom_point() +
+  labs(x='distance',y='semivariance') +
+  geom_hline(aes(yintercept = var_res_IB.samples, linetype="Variance of beat index residuals")) + 
+  theme(plot.title=element_text(hjust=0.5)) +ylim(0,0.02)+
+  scale_x_continuous(expand = c(0, 0))
+
+vario_exp.IB.samples + scale_linetype_manual(name = "",values = ("Variance of beat index residuals" = "dashed")) + 
+  theme(legend.position = c(0.8,0.1))
+
+clean.vg.exp.IB.samples <- vgm(psill=0.01, model='Sph', range = 100, nugget = 0.005)
+clean.fit.exp.IB.samples <- fit.variogram(IB.samples.res.variobis, model = clean.vg.exp.IB.samples, fit.method = 6)
+
+preds.IB.samples = variogramLine(clean.fit.exp.IB.samples, maxdist=300)
+
+vario_exp.IB.samples + geom_line(data=preds.IB.samples,aes(linetype="Fitted variogram model")) + 
+  scale_linetype_manual(name = "",values = c("Variance of beat index residuals" = "dashed", "Fitted variogram model" = "solid")) + 
+  theme(legend.position = c(0.8,0.15))
+
+```
+
+
+
+```{r grille de prédictions}
+gridsize = 1
+x <- seq(floor(min(data$x)), 
+         ceiling(max(data$x)), 
+         by=gridsize)
+y <- seq(floor(min(data$y)), 
+         ceiling(max(data$y)), 
+         by=gridsize)
+data.grid <- as.data.table(expand.grid(x=x, y=y))
+```
+
+
+
+```{r puissance}
+# puissance argile
+powers <- seq(0.5,5,0.5)
+pmse <- data.table(power = powers, mse = rep(0,length(powers)) )
+for (p in powers){
+  pse <- rep(0,nrow(clean.data.A)) 
+  for (i in 1:nrow(clean.data.A)){
+     point.idw <- idw(formula = A~1,
+              data = clean.data.A[-i,],  
+              locations = ~x+y,
+              newdata = clean.data.A[i,],
+              idp = p,
+              nmax=5,
+              maxdist=290,
+              debug.level = 0) 
+     pse[i] <- (point.idw$var1.pred - clean.data.A$A[i])^2
+  }
+  pmse[power==p,"mse"] = mean(pse)
+}
+
+plot(pmse)
+
+
+
+# puissance CEC
+powers <- seq(0.5,5,0.5)
+pmse <- data.table(power = powers, mse = rep(0,length(powers)) )
+for (p in powers){
+  pse <- rep(0,nrow(clean.data.CEC)) 
+  for (i in 1:nrow(clean.data.CEC)){
+     point.idw <- idw(formula = CEC~1,
+              data = clean.data.CEC[-i,],  
+              locations = ~x+y,
+              newdata = clean.data.CEC[i,],
+              idp = p,
+              nmax=6,
+              maxdist=290,
+              debug.level = 0)
+     pse[i] <- (point.idw$var1.pred - clean.data.CEC$CEC[i])^2
+  }
+  pmse[power==p,"mse"] = mean(pse)
+}
+
+plot(pmse)
+
+
+
+# puissance pH KCl
+powers <- seq(0.5,5,0.5)
+pmse <- data.table(power = powers, mse = rep(0,length(powers)) )
+for (p in powers){
+  pse <- rep(0,nrow(clean.data.pH_KCL)) 
+  for (i in 1:nrow(clean.data.pH_KCL)){
+     point.idw <- idw(formula = pH_KCL~1,
+              data = clean.data.pH_KCL[-i,],  
+              locations = ~x+y,
+              newdata = clean.data.pH_KCL[i,],
+              idp = p,
+              nmax=21,
+              maxdist=290,
+              debug.level = 0)
+     pse[i] <- (point.idw$var1.pred - clean.data.pH_KCL$pH_KCL[i])^2
+  }
+  pmse[power==p,"mse"] = mean(pse)
+}
+
+plot(pmse)
+
+
+
+# puissance IB
+powers <- seq(0.5,5,0.5)
+pmse <- data.table(power = powers, mse = rep(0,length(powers)))
+for (p in powers){
+  pse <- rep(0,nrow(clean.data_omit.IB.samples)) 
+  for (i in 1:nrow(clean.data_omit.IB.samples)){
+     point.idw <- idw(formula = IB.samples~1,
+              data = clean.data_omit.IB.samples[-i,],  
+              locations = ~x+y,
+              newdata = clean.data_omit.IB.samples[i,],
+              idp = p,
+              nmax=17,
+              maxdist=290,
+              debug.level = 0) 
+     pse[i] <- (point.idw$var1.pred - clean.data_omit.IB.samples$IB.samples[i])^2
+  }
+  pmse[power==p,"mse"] = mean(pse)
+}
+
+
+plot(pmse)
+```
+
+
+
+```{r distance inverse}
+# distance inverse argile
+A.idw <- as.data.table(idw(formula = A~1,data = clean.data.A,locations = ~x+y,newdata = data.grid,idp = 2,nmax = 5,maxdist = 290))
+ggplot() + 
+  geom_tile(data = A.idw,
+            aes(x = x, y = y,fill = var1.pred)) +
+  scale_fill_gradientn(name = "Clay [%]",
+                       colors = c('royalblue','green3','yellow','red')) +
+  geom_point(data = clean.data.A,
+             aes(x = x, y = y),
+             size = 2,
+             shape = 18,
+             show.legend = TRUE) +
+  scale_linetype_manual(values = c('Measurement points' = '')) +
+  labs(x = 'X',
+       y = 'Y',
+       fill = '') +
+  theme_classic() +
+  theme(legend.key = element_rect(fill = "green3",color = NA),
+        plot.title = element_text(hjust = 0.5))
+
+
+
+# distance inverse CEC
+CEC.idw <- as.data.table(idw(formula = CEC~1,data = clean.data.CEC,locations = ~x+y,newdata = data.grid,idp = 4,nmax = 6,maxdist = 290))
+ggplot() + 
+  geom_tile(data = CEC.idw,
+            aes(x = x, y = y,fill = var1.pred)) +
+  scale_fill_gradientn(name = "CEC [méq/100g]",
+                       colors = c('royalblue','green3','yellow','red')) +
+  geom_point(data = clean.data.CEC,
+             aes(x = x, y = y),
+             size = 2,
+             shape = 18,
+             show.legend = TRUE) +
+  scale_linetype_manual(values = c('Measurement points' = '')) +
+  labs(x = 'X',
+       y = 'Y',
+       fill = '') +
+  theme_classic() +
+  theme(legend.key = element_rect(fill = "green3",color = NA),
+        plot.title = element_text(hjust = 0.5))
+
+
+
+# distance inverse pH KCl
+pH_KCL.idw <- as.data.table(idw(formula = pH_KCL~1,data = clean.data.pH_KCL,locations = ~x+y,newdata = data.grid,idp = 2,nmax = 21,maxdist = 290))
+ggplot() + 
+  geom_tile(data = pH_KCL.idw,
+            aes(x = x, y = y,fill = var1.pred)) +
+  scale_fill_gradientn(name = "pH KCl [-]",
+                       colors = c('royalblue','green3','yellow','red')) +
+  geom_point(data = clean.data.pH_KCL,
+             aes(x = x, y = y),
+             size = 2,
+             shape = 18,
+             show.legend = TRUE) +
+  scale_linetype_manual(values = c('Measurement points' = '')) +
+  labs(x = 'X',
+       y = 'Y',
+       fill = '') +
+  theme_classic() +
+  theme(legend.key = element_rect(fill = "green3",color = NA),
+        plot.title = element_text(hjust = 0.5))
+
+
+
+# distance inverse IB
+IB.samples.idw <- as.data.table(idw(formula = IB.samples~1,data = clean.data_omit.IB.samples,locations = ~x+y,newdata = data.grid,idp = 4,nmax = 17,maxdist = 290))
+ggplot() + 
+  geom_tile(data = IB.samples.idw,
+            aes(x = x, y = y,fill = var1.pred)) +
+  scale_fill_gradientn(name = "Beat index [-]",
+                       colors = c('royalblue','green3','yellow','red')) +
+  geom_point(data = clean.data_omit.IB.samples,
+             aes(x = x, y = y),
+             size = 2,
+             shape = 18,
+             show.legend = TRUE) +
+  scale_linetype_manual(values = c('Measurement points' = '')) +
+  labs(x = 'X',
+       y = 'Y',
+       fill = '') +
+  theme_classic() +
+  theme(legend.key = element_rect(fill = "green3",color = NA),
+        plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r plot 3D IDW}
+# /!\ Ce chunk fait souvent crasher RStudio /!\
+#  fig3d_CEC <- plot_ly(x=CEC.idw$x, y=CEC.idw$y, z=CEC.idw$var1.pred, type='mesh3d',
+#                  intensity = CEC.idw$var1.pred,
+#                  colors = colorRamp(c("blue", "lightblue", "chartreuse3", "yellow", "red")))
+#   
+#  fig3d_CEC
+#    
+#  fig3d_pHKCL <- plot_ly(x=pH_KCL.idw$x, y=pH_KCL.idw$y, z=pH_KCL.idw$var1.pred, type='mesh3d',
+#                  intensity = pH_KCL.idw$var1.pred,
+#                  colors = colorRamp(c("blue", "lightblue", "chartreuse3", "yellow", "red")))
+#  fig3d_pHKCL
+```
+
+
+
+```{r krigging}
+# krigeage argile
+A.krig <- krige(formula = A~1,
+              data = clean.data.A,  
+              locations = ~x+y,
+              newdata = data.grid, 
+              model = clean.fit.exp.A)
+
+setnames(A.krig, c("var1.pred", "var1.var"), c("A.predkrig", "A.varkrig"))
+
+ggplot() + 
+  geom_tile(data=A.krig, 
+            aes(x = x, y = y, fill = A.predkrig)) +
+  geom_point(data=clean.data.A, 
+             aes(x=x, y=y, color="Measurement points"),
+             shape=18,
+             size=2) +
+  scale_color_manual("", values="black") +
+  scale_fill_gradientn(name="Clay prediction [%]]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key = element_rect(fill = "green3", 
+                                  color = NA)) +
+  xlab("X") +
+  ylab("Y") 
+
+
+
+# krigeage pH KCl
+pH_KCL.krig <- krige(formula = pH_KCL~1,
+              data = clean.data.pH_KCL,  
+              locations = ~x+y,
+              newdata = data.grid, 
+              model = clean.fit.exp.pH_KCL)
+
+setnames(pH_KCL.krig, c("var1.pred", "var1.var"), c("pH_KCL.predkrig", "pH_KCL.varkrig"))
+
+ggplot() + 
+  geom_tile(data=pH_KCL.krig, 
+            aes(x = x, y = y, fill = pH_KCL.predkrig)) +
+  geom_point(data=clean.data.pH_KCL, 
+             aes(x=x, y=y, color="Measurement points"),
+             shape=18,
+             size=2) +
+  scale_color_manual("", values="black") +
+  scale_fill_gradientn(name="pH KCl prediction [-]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key = element_rect(fill = "green3", 
+                                  color = NA)) +
+  xlab("X") +
+  ylab("Y") 
+
+
+
+# krigeage CEC
+CEC.krig <- krige(formula = CEC~1,
+              data = clean.data.CEC,  
+              locations = ~x+y,
+              newdata = data.grid, 
+              model = clean.fit.exp.CEC)
+
+setnames(CEC.krig, c("var1.pred", "var1.var"), c("CEC.predkrig", "CEC.varkrig"))
+
+ggplot() + 
+  geom_tile(data=CEC.krig, 
+            aes(x = x, y = y, fill = CEC.predkrig)) +
+  geom_point(data=clean.data.CEC, 
+             aes(x=x, y=y, color="Measurement points"),
+             shape=18,
+             size=2) +
+  scale_color_manual("", values="black") +
+  scale_fill_gradientn(name="CEC prediction [méq/100g]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key = element_rect(fill = "green3", 
+                                  color = NA)) +
+  xlab("X") +
+  ylab("Y") 
+
+
+
+# krigeage IB
+IB.samples.krig <- krige(formula = IB.samples~1,
+              data = clean.data_omit.IB.samples,  
+              locations = ~x+y,
+              newdata = data.grid, 
+              model = clean.fit.exp.IB.samples)
+
+setnames(IB.samples.krig, c("var1.pred", "var1.var"), c("IB.samples.predkrig", "IB.samples.varkrig"))
+
+ggplot() + 
+  geom_tile(data=IB.samples.krig, 
+            aes(x = x, y = y, fill = IB.samples.predkrig)) +
+  geom_point(data=clean.data_omit.IB.samples, 
+             aes(x=x, y=y, color="Measurement points"),
+             shape=18,
+             size=2) +
+  scale_color_manual("", values="black") +
+  scale_fill_gradientn(name="Beat index prediction [-]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key = element_rect(fill = "green3", 
+                                  color = NA)) +
+  xlab("X") +
+  ylab("Y")
+```
+
+
+
+```{r krigging vs IDW}
+# IDW
+ggplot() + 
+ geom_contour(data = CEC.idw, aes(x = x, y = y, z=var1.pred), bins=20)+
+ geom_point(data=clean.data.CEC, aes(x=x, y=y))
+#kriging
+ggplot() +
+  geom_contour(data=CEC.krig, aes(x=x, y=y, z=CEC.predkrig), bins = 20) + 
+  geom_point(data=clean.data.CEC, aes(x=x, y=y))
+```
+
+
+
+```{r cokrigeage}
+# prédiction de l'IB via la CEC
+g <- gstat(id="IB.samples", formula=IB.samples~1, data=na.omit(data), locations=~x+y)
+g <- gstat(g, id="CEC", formula=CEC~1, data=na.omit(data), locations=~x+y)
+v.cross <- variogram(g, cutoff=400, width=25)
+plot(v.cross)
+
+lmc.model <- vgm(psill=900, model='Sph', range = 9, nugget = 400)
+LMC <- fit.lmc(v.cross, g, model=clean.fit.exp.CEC)#, correct.diagonal=1.0000001)
+LMC
+
+g <- copy(LMC)
+g <- gstat(g, id="CEC", form=CEC~1, data=data, locations=~x+y, model=LMC$model$CEC)
+
+plot(v.cross, model=g$model, col='black', pch=16)
+
+IB.samples.cok <- predict(g, data.grid)
+
+setnames(IB.samples.cok, c("IB.samples.pred", "IB.samples.var"), c("IB.samples.predcok", "IB.samples.varcok"))
+
+ggplot() + 
+  geom_tile(data=IB.samples.cok, 
+            aes(x=x, y=y, fill=IB.samples.predcok)) +
+  scale_shape_manual("", values=c(1,3)) +
+  scale_size_manual("", values=c(4,2)) +
+  scale_fill_gradientn(name="IB prediction [-]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key=element_rect(fill="green3", 
+                                color=NA)) +
+  xlab("X") +
+  ylab("Y")
+```
+
+
+
+```{r varaiance of prediction}
+#kriging variance prediction
+ggplot() + 
+  geom_tile(data=IB.samples.krig, 
+            aes(x = x, y = y, fill = IB.samples.varkrig)) +
+  geom_point(data=clean.data_omit.IB.samples, 
+             aes(x=x, y=y, color="Measurement points"),
+             shape=18,
+             size=2) +
+  scale_color_manual("", values="black") +
+  scale_fill_gradientn(name="IB prediction variance [-]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key = element_rect(fill  = NA, color = NA)) +
+  xlab("X") +
+  ylab("Y")
+
+#cokriging variance prediction
+ggplot() + 
+  geom_tile(data=IB.samples.cok, 
+            aes(x=x, y=y, fill=IB.samples.varcok)) +
+  geom_point(data=data_omit,aes(x=x,y=y, shape='IB data points', size='IB data points')) +
+  geom_point(data=data,aes(x=x,y=y, shape='CEC data points', size='CEC data points')) +
+  scale_shape_manual("", values=c(1,18)) +
+  scale_size_manual("", values=c(3,2)) +
+  scale_fill_gradientn(name="IB prediction variance [-]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key=element_rect(fill=NA, color=NA)) +
+  xlab("X") +
+  ylab("Y") 
+
+# variance difference krik-cokrig using all points
+
+## compute difference & store variance difference
+vardif <- data.grid
+vardif$var_dif = IB.samples.krig$IB.samples.varkrig - IB.samples.cok$IB.samples.varcok
+summary(IB.samples.krig$IB.samples.varkrig)
+summary(IB.samples.cok$IB.samples.varcok)
+
+## plot difference
+ggplot() +
+  geom_tile(data=vardif,aes(x=x, y=y, fill=var_dif)) +
+  geom_point(data=data_omit,aes(x=x,y=y, shape='IB data points', size='IB data points')) +
+  geom_point(data=data,aes(x=x,y=y, shape='CEC data points', size='CEC data points')) +
+  scale_shape_manual("", values=c(1,18)) +
+  scale_size_manual("", values=c(3,2)) +
+  scale_fill_gradientn(name="IB prediction \nvariance difference [-]", colors=c('royalblue','green3', 'yellow', 'red'))+
+  theme(legend.key=element_rect(fill=NA, color=NA)) +
+  xlab("X") +
+  ylab("Y")
+  
+```
+
+
+
+```{r theme sup}
+gridsize = 5
+x <- seq(floor(min(data$x)), 
+         ceiling(max(data$x)), 
+         by=gridsize)
+y <- seq(floor(min(data$y)), 
+         ceiling(max(data$y)), 
+         by=gridsize)
+data.grid <- as.data.table(expand.grid(x=x, y=y))
+
+
+
+
+
+A.uncondsim <- krige(formula = A~1, data = clean.data.A, loc=~x+y, newdata = data.grid,
+                 model = clean.fit.exp.A, nmax = 20, nsim = 100, beta = mean(clean.data.A$A), dummy=TRUE)
+
+A.uncondsim <- as.data.table(A.uncondsim)
+
+sims <- colnames(A.uncondsim)[-c(1,2)]
+sims.vario <- matrix(nrow = 12, ncol = 0)
+for (i in sims){
+  sim.gstat <- gstat(formula = get(i)~1, data = A.uncondsim, loc=~x+y)
+  sims.vario <- cbind(sims.vario,variogram(sim.gstat, cutoff = 300, width = 25)[,"gamma"])
+}
+
+A.vario <- data.table(dist=variogram(sim.gstat, cutoff = 300, width = 25)[,c("dist")])
+A.vario$t0.025 <- rowQuantiles(sims.vario,probs=0.025)
+A.vario$t0.975 <- rowQuantiles(sims.vario,probs=0.975)
+A.vario$tmean   <- rowQuantiles(sims.vario,probs=0.5)
+
+ggplot(data = A.vario)  +
+  geom_ribbon(aes(x = dist, ymin=t0.025, ymax=t0.975, fill="95% Confidence interval"), alpha=0.6) +
+  geom_hline(aes(yintercept = var_res_A, linetype="Variance of clay residuals")) +
+  xlab("Distance [degrees]") + 
+  ylab("Variogram value") +
+  ylim(0,7) +
+  scale_fill_discrete(name=NULL)+
+  geom_line(aes(x=dist, y=tmean), color="red")
+
+
+
+
+
+CEC.uncondsim <- krige(formula = CEC~1, data = clean.data.CEC, loc=~x+y, newdata = data.grid,
+                 model = clean.fit.exp.CEC, nmax = 20, nsim = 100, beta = mean(clean.data.CEC$CEC), dummy=TRUE)
+
+CEC.uncondsim <- as.data.table(CEC.uncondsim)
+
+sims <- colnames(CEC.uncondsim)[-c(1,2)]
+sims.vario <- matrix(nrow = 12, ncol = 0)
+for (i in sims){
+  sim.gstat <- gstat(formula = get(i)~1, data = CEC.uncondsim, loc=~x+y)
+  sims.vario <- cbind(sims.vario,variogram(sim.gstat, cutoff = 300, width = 25)[,"gamma"])
+}
+
+CEC.vario <- data.table(dist=variogram(sim.gstat, cutoff = 300, width = 25)[,c("dist")]) 
+CEC.vario$t0.025 <- rowQuantiles(sims.vario,probs=0.025)
+CEC.vario$t0.975 <- rowQuantiles(sims.vario,probs=0.975)
+CEC.vario$tmean   <- rowQuantiles(sims.vario,probs=0.5)
+
+ggplot(data = CEC.vario)  +
+  geom_ribbon(aes(x = dist, ymin=t0.025, ymax=t0.975, fill="95% Confidence interval"), alpha=0.6) +
+  geom_hline(aes(yintercept = var_res_CEC, linetype="Variance of CEC residuals")) +
+  xlab("Distance [degrees]") + 
+  ylab("Variogram value") +
+  xlim(0,300) +
+  ylim(0,4) +
+  scale_fill_discrete(name=NULL)+
+  geom_line(aes(x=dist, y=tmean), color="red")
+
+
+
+
+
+
+pH.uncondsim <- krige(formula = pH_KCL~1, data = clean.data.pH_KCL, loc=~x+y, newdata = data.grid,
+                 model = clean.fit.exp.pH_KCL, nmax = 20, nsim = 100, beta = mean(clean.data.pH_KCL$pH_KCL), dummy=TRUE)
+
+pH.uncondsim <- as.data.table(pH.uncondsim)
+
+sims <- colnames(pH.uncondsim)[-c(1,2)]
+sims.vario <- matrix(nrow = 12, ncol = 0)
+for (i in sims){
+  sim.gstat <- gstat(formula = get(i)~1, data = pH.uncondsim, loc=~x+y)
+  sims.vario <- cbind(sims.vario,variogram(sim.gstat, cutoff = 300, width = 25)[,"gamma"])
+}
+
+pH.vario <- data.table(dist=variogram(sim.gstat, cutoff = 300, width = 25)[,c("dist")])
+pH.vario$t0.025 <- rowQuantiles(sims.vario,probs=0.025)
+pH.vario$t0.975 <- rowQuantiles(sims.vario,probs=0.975)
+pH.vario$tmean   <- rowQuantiles(sims.vario,probs=0.5)
+
+ggplot(data = pH.vario)  +
+  geom_ribbon(aes(x = dist, ymin=t0.025, ymax=t0.975, fill="95% Confidence interval"), alpha=0.6) +
+  geom_hline(aes(yintercept = var_res_pH_KCL, linetype="Variance of pH KCl residuals")) +
+  xlab("Distance [degrees]") + 
+  ylab("Variogram value") +
+  xlim(0,300) +
+  ylim(0,0.125) +
+  scale_fill_discrete(name=NULL)+
+  geom_line(aes(x=dist, y=tmean), color="red")
+
+
+
+
+
+
+IB.uncondsim <- krige(formula = IB.samples~1, data = clean.data_omit.IB.samples, loc=~x+y, newdata = data.grid,
+                 model = clean.fit.exp.IB.samples, nmax = 20, nsim = 100, beta = mean(clean.data_omit.IB.samples$IB.samples), dummy=TRUE)
+
+IB.uncondsim <- as.data.table(IB.uncondsim)
+
+sims <- colnames(IB.uncondsim)[-c(1,2)]
+sims.vario <- matrix(nrow = 12, ncol = 0)
+for (i in sims){
+  sim.gstat <- gstat(formula = get(i)~1, data = IB.uncondsim, loc=~x+y)
+  sims.vario <- cbind(sims.vario,variogram(sim.gstat, cutoff = 300, width = 25)[,"gamma"])
+}
+
+IB.vario <- data.table(dist=variogram(sim.gstat, cutoff = 300, width = 25)[,c("dist")])
+IB.vario$t0.025 <- rowQuantiles(sims.vario,probs=0.025)
+IB.vario$t0.975 <- rowQuantiles(sims.vario,probs=0.975)
+IB.vario$tmean   <- rowQuantiles(sims.vario,probs=0.5)
+
+ggplot(data = IB.vario)  +
+  geom_ribbon(aes(x = dist, ymin=t0.025, ymax=t0.975, fill="95% Confidence interval"), alpha=0.6) +
+  geom_hline(aes(yintercept = var_res_IB.samples, linetype="Variance of beat index residuals")) +
+  xlab("Distance [degrees]") + 
+  ylab("Variogram value") +
+  xlim(0,300) +
+  ylim(0,0.015) +
+  scale_fill_discrete(name=NULL)+
+  geom_line(aes(x=dist, y=tmean), color="red")
+```
